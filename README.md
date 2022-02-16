@@ -69,8 +69,8 @@ The view is exposed in a flat JSON structure for simple lists:
     
  * Some fields have (hopefully useful) defaults are used if they are not explicitly specified (or you don't do `field=all`)
  
- * This makes it friendly for casual "human use", but if the defaults change, it may affect any 
-   scripts, so it probably makes sense to always explicitly state what you want, when using in scripts.
+ * This makes it friendly for casual "human use", changing the defaults may affect scripts, so it probably 
+   makes sense to always explicitly state what you want when using in scripts.
    
  * Modify these defaults in `%defs` to suit.
  
@@ -292,6 +292,7 @@ $ wget -qO - 'https://yourhost/cgi-internal/json_connections?rsclient=1&ipv6enab
 ## TODO
 
  * Select where value is not null
+ * Wrapper for error return msg to json (correct return codes) and for "an error occurred" "field not found" or "query ran okay but no results found."
  * Optional structures for use with automation (flat output can only go so far...)
  * Authentication
  * Move database functions to module + config file
