@@ -96,16 +96,30 @@ my %defs = ('vlan' =>  {
                        },
             );
 
-my %column_info = GetTableColumnInfo( { table => 'view_local_connections' } );
+my $MYSQL_DATABASE           = 'ixpmanager';
+my $MYSQL_SERVER             = '127.0.0.1';
+my $MYSQL_USER               = 'your_db_user';
+my $MYSQL_PASS               = 'your_db_pass';
+
+  my $server    = $opts{server} || $conf{mysql}{server};
+  my $user      = $opts{user}   || $conf{mysql}{user};
+  my $pass      = $opts{pass}   || $conf{mysql}{pass};
+  my $database  = $opts{database} || $conf{mysql}{database};
+
+my %column_info = GetTableColumnInfo( {  server => $MYSQL_SERVER,
+                                         database => $MYSQL_DATABASE,
+					 user => $MYSQL_USER,
+					 pass => $MYSQL_PASS,
+                                         table => 'view_local_connections' 
+				       } );
 
 # fields to allow query from url (any field in the view is fine);
 my @queryfields = sort keys %column_info;
+
+# add some convenience field aliases:
 push (@queryfields, ('ipv4', 'ipv6', 'vlan', 'switchport'));
 
-#use Data::Dumper;
-#print Dumper \%column_info;
-#exit 0;
-
+# Add NOT ^field conditions:
 my @notqueryfields;
 foreach (@queryfields) {
   push @notqueryfields, '^' . $_;
