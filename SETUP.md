@@ -45,5 +45,5 @@ my %defs = ('vlan' =>  {
 
 ```
 GRANT SELECT on ixpmanager.view_local_connections TO 'my_user'@'192.168.1.10';
-GRANT SELECT on ixpmanager..view_local_connections TO 'my_user'@'yourhost.example.com';
+GRANT SELECT on ixpmanager.view_local_connections TO 'my_user'@'yourhost.example.com';
 ```
