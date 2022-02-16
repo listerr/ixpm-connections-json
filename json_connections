@@ -96,16 +96,6 @@ my %defs = ('vlan' =>  {
                        },
             );
 
-my $MYSQL_DATABASE           = 'ixpmanager';
-my $MYSQL_SERVER             = '127.0.0.1';
-my $MYSQL_USER               = 'your_db_user';
-my $MYSQL_PASS               = 'your_db_pass';
-
-  my $server    = $opts{server} || $conf{mysql}{server};
-  my $user      = $opts{user}   || $conf{mysql}{user};
-  my $pass      = $opts{pass}   || $conf{mysql}{pass};
-  my $database  = $opts{database} || $conf{mysql}{database};
-
 my %column_info = GetTableColumnInfo( {  server => $MYSQL_SERVER,
                                          database => $MYSQL_DATABASE,
 					 user => $MYSQL_USER,
