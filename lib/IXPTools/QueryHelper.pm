@@ -124,7 +124,7 @@ sub GetTableColumnInfo {
 
   DBConnect(%opts);
 
-  my $array_from      = $opts->{array_from} || undef;
+  my $array_from = $opts{array_from} || undef;
   
   my (@column_names);
   my %column;
