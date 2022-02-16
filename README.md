@@ -294,6 +294,7 @@ $ wget -qO - 'https://yourhost/cgi-internal/json_connections?rsclient=1&ipv6enab
  * Select where value is not null
  * Wrapper for error return msg to json (correct return codes) and for "an error occurred" "field not found" or "query ran okay but no results found."
  * Optional structures for use with automation (flat output can only go so far...)
+   * Example: auto_neg and duplex settings where you _do_ actually need to know the value for each physical interface, not an aggregate of all interfaces.
  * Authentication
  * Move database functions to module + config file
  * Learn some php foo
