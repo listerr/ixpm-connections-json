@@ -1,0 +1,261 @@
+#!/usr/bin/perl
+use strict;
+use CGI;
+use DBI;
+use JSON;
+use lib "./lib";
+
+# or use findbin to find
+# use FindBin;
+# use lib "$FindBin::Bin/../lib";
+
+use IXPTools::QueryHelper qw(BuildWhereField GetTableColumnInfo);
+
+# JSON output of live member connection details:
+#
+# Example to get into tab sep format with the fields you want from the JSON:
+# wget -qO - 'https://yourhost/cgi-internal/json_connections?loc_name=LOCATION' | jq -r '.connections[] | [.abbreviatedName,.autsys,.ipv4_list,.ipv6_list] | @tsv'
+
+# HTTP HEADER 
+print "Content-type: application/json; charset=iso-8859-1\n\n";
+
+#------------------------------------------------------------------------------
+# CONFIG VARS:
+
+my $MYSQL_DATABASE           = 'ixpmanager';
+my $MYSQL_SERVER             = '127.0.0.1';
+my $MYSQL_USER               = 'your_db_user';
+my $MYSQL_PASS               = 'your_db_pass';
+
+my $MYSQL_DATA_SOURCE        = "dbi:mysql:$MYSQL_DATABASE:$MYSQL_SERVER";
+
+#------------------------------------------------------------------------------
+
+my $DEBUG=0; # debugging
+
+my $dbh   = DBI->connect($MYSQL_DATA_SOURCE, $MYSQL_USER, $MYSQL_PASS, {
+             RaiseError       => 1,
+             PrintError       => 1,
+             # AutoCommit     => 0,
+             }) or die "Can't connect to mysql db $MYSQL_DATABASE / $MYSQL_SERVER : $DBI::errstr";
+
+$dbh->do("set character set utf8");
+$dbh->do("set names utf8");
+
+my $where = '1 = 1';
+
+my ($p, $sth, @query_output, @bindvalues, @selectfields, @booleans, $q_order_by, %select);
+
+$p = new CGI;
+
+my $order_by    = $p->param('order_by') || 'abbreviatedName';
+my $select      = $p->param('select');
+my $cust_type   = $p->param('cust_type');
+
+unless ($cust_type) {
+   $where .= " AND cust_type != 3";
+}
+
+my %defs = ('vlan' =>  {
+                      'name' => 'vlan_list',
+                      'default' => '4',
+                      'function' => 'find_in_set',
+                       },
+            'cust_status' => {
+                      'default' => '1',
+                       },
+            'port_status' => {
+                      'default' => '1',
+                       },
+            'switchport' => {
+                      'name' => 'switchport_list',
+                      'function' => 'find_in_set',
+                       },
+            'ppp_circuit_ref' => {
+                      'name' => 'ppp_circuit_ref',
+                      'function' => 'find_in_set',
+                      'comp' => 'like',
+                       },
+            'ppp_name' => {
+                      'name' => 'ppp_name',
+                      'function' => 'find_in_set',
+                       },
+            'ipv4' => {
+                      'name' => 'ipv4_list',
+                      'function' => 'find_in_set',
+                       },
+            'ipv6' => {
+                      'name' => 'ipv6_list',
+                      'function' => 'find_in_set',
+                       },
+            'isResold' => {
+                      'type' => 'tinyint(1)',
+                       },
+            'isRatelimit' => {
+                      'type' => 'tinyint(1)',
+                       },
+            );
+
+my %column_info = GetTableColumnInfo( { table => 'view_local_connections' } );
+
+# fields to allow query from url (any field in the view is fine);
+my @queryfields = sort keys %column_info;
+push (@queryfields, ('ipv4', 'ipv6', 'vlan', 'switchport'));
+
+#use Data::Dumper;
+#print Dumper \%column_info;
+#exit 0;
+
+my @notqueryfields;
+foreach (@queryfields) {
+  push @notqueryfields, '^' . $_;
+}
+
+push (@queryfields, @notqueryfields);
+
+foreach my $s (split(/,/,$select)) {
+  $select{$s}=1;
+}
+
+# set bind field values for sql placeholder,
+# allow more than one value separated with ','
+foreach my $field (@queryfields) {
+
+   my $fieldvalue;
+   my $not;
+   my $type;
+
+   if (defined $p->param($field)) { 
+      $fieldvalue = $p->param($field);
+    } elsif (defined $defs{$field}{default}) {
+      $fieldvalue = $defs{$field}{default};
+    }
+
+    my $comp  = $defs{$field}{comp} || '=';
+    my $type  = $defs{$field}{type} || $column_info{$field}{mysql_type_name};
+
+    # search modifiers:
+    if ($field =~ /^\^/) {  $not = 1;  $field =~ s/^\^//g; }
+    if ($fieldvalue =~ /^_/)  {  $comp = 'like';  $fieldvalue =~ s/^_//g; }
+
+    next if $fieldvalue eq 'all';
+
+    # Check if type boolean to convert JSON output:
+    if ($type eq 'tinyint(1)') { push @booleans, $field };
+
+   if (($field eq 'autsys') && ($fieldvalue)) {
+     # unset defaults if we lookup autsys so we show everything:
+     $defs{cust_type}{default}   = undef;
+     $defs{cust_status}{default} = undef;
+     $defs{port_status}{default} = undef;
+   }
+
+   # use my value and not directly from the url (prevent SQL injection-type thing)
+   if ($order_by eq $field) { $q_order_by = $field };
+
+   my $function   = $defs{$field}{function} || '';
+   my $oper       = $defs{$field}{oper} || 'OR';
+
+   # Now set name for query if parameter is different:
+   $field         = $defs{$field}{name} || $field; 
+
+   # Try to make IPv4 address sort correctly:
+   # Technically this is a list, so it may not work if >1 IP address is returned, 
+   # but it's going to be 1 IP address in the a majority, if not all cases.
+   if ($q_order_by eq 'ipv4') { $q_order_by = "INET_ATON($field)" };
+
+   if ((!$not) && ($select{$field}))   { push @selectfields, $field };
+ 
+    if ($fieldvalue) {
+
+      $where .= BuildWhereField( { field => $field, values => $fieldvalue, function => $function, comp => $comp, not => $not } );
+    
+      foreach my $v (split(/,/,$fieldvalue)) {
+
+       my $va;
+
+       if ($comp eq 'like') {
+         $v = '%' . $v . '%';
+         if ($function eq 'find_in_set') { 
+           $va = '%,'. $v . '%';
+         }
+       }
+
+       if ($v eq 'true')  { $v = '1' };
+       if ($v eq 'false') { $v = '0' };
+
+       push @bindvalues, $v;
+      
+      # This query has two placeholders, so push the value again:
+       if ($va) {
+          push @bindvalues, $va;
+       }
+     }
+  }
+}
+
+# Print debug output inside JSON to avoid wrecking it for things expecting JSON!
+if ($DEBUG) {
+ my $bindvals = join ',', @bindvalues;
+
+ my %debug = ( 'debug' => {
+                  'where' => $where,
+                  'bindvalues' => $bindvals
+              },
+             );
+
+print JSON->new->ascii->pretty->encode(\%debug);
+}
+
+# Run Query:
+my $sth = $dbh->prepare("SELECT * from view_local_connections
+		                     WHERE $where
+                         ORDER BY $q_order_by
+                         ");
+
+$sth->execute(@bindvalues);
+
+# LOOP THROUGH RESULTS
+while ( my $row = $sth->fetchrow_hashref ) {
+
+  # Can do things here if needed
+  # $row->{autsys} = int($row->{autsys});
+
+  # Turn '0' and '1' boolean database values to JSON true or false values:
+  foreach my $bool (@booleans) {
+   $row->{$bool}=js_bool("$row->{$bool}");
+  }
+
+  if (@selectfields) {
+   foreach my $f (@queryfields) {
+     delete($row->{$f}) unless ($select{$f});
+   }
+  }
+
+  push @query_output, $row;
+}
+
+# CLOSE DATABASE CONNECTION
+
+$dbh->disconnect();
+
+# JSON OUTPUT
+# Pretty (human readable) output:
+print "{\n";
+print "\"connections\": ";
+print JSON->new->canonical(1)->ascii->pretty->encode(\@query_output);
+print "}\n";
+
+
+sub js_bool {
+
+  # cast MySQL boolean 1/0 to JSON true or false:
+
+	my $input = shift;
+
+  if ($input eq '1')  { return \1 };
+  if ($input eq '0')  { return \0 };
+
+	return $input;
+
+}
