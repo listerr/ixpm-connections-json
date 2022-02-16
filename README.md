@@ -294,3 +294,6 @@ $ wget -qO - 'https://yourhost/cgi-internal/json_connections?rsclient=1&ipv6enab
  * Select where value is not null
  * Optional structures for use with automation (flat output can only go so far...)
  * Authentication
+ * Move database functions to module + config file
+ * Learn some php foo
+ * Do this again in more "modern" framework
