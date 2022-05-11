@@ -259,6 +259,7 @@ sub js_bool {
 
   if ($input eq '1')  { return \1 };
   if ($input eq '0')  { return \0 };
+  if ($input eq '')   { return \0 };
 
 	return $input;
 
