@@ -26,9 +26,12 @@ SELECT
     cabinet.name AS cabinet,
     location.id AS loc_id,
     location.shortname AS loc_name,
+    location.tag AS loc_tag,
     Group_Concat(DISTINCT patch_panel_port.colo_circuit_ref) AS ppp_circuit_ref,
     Group_Concat(DISTINCT patch_panel_port.id) AS ppp_id,
     Group_Concat(DISTINCT patch_panel.name) AS ppp_name,
+    Group_Concat(DISTINCT patch_panel.connector_type) AS ppp_connector_type,
+    Group_Concat(DISTINCT vlaninterface.id) AS vlaninterface_id_list,
     Max(DISTINCT vlaninterface.rsclient) AS rsclient,
     Max(DISTINCT vlaninterface.ipv4enabled) AS ipv4enabled,
     Max(DISTINCT vlaninterface.ipv4canping) AS ipv4canping,
@@ -43,9 +46,12 @@ SELECT
     cust.isReseller,
     cust.reseller,
     If(cust.reseller > 0, 1, 0) AS isResold,
-    COUNT(l2a.mac) AS mac_count,
-    COUNT(DISTINCT l2a.mac) AS mac_count_unique,
-    GROUP_CONCAT(DISTINCT l2a.mac) as mac_list
+    Count(l2a.mac) AS mac_count,
+    Count(DISTINCT l2a.mac) AS mac_count_unique,
+    Group_Concat(DISTINCT l2a.mac) AS mac_list,
+    cust.datejoin,
+    cust.corpwww,
+    cust.in_peeringdb
 FROM
     cust
     INNER JOIN virtualinterface ON virtualinterface.custid = cust.id
@@ -62,6 +68,10 @@ FROM
     LEFT OUTER JOIN patch_panel ON patch_panel.cabinet_id = cabinet.id AND
             patch_panel_port.patch_panel_id = patch_panel.id
     LEFT OUTER JOIN l2address l2a ON l2a.vlan_interface_id = vlaninterface.id
+WHERE
+    (isnull(cust.dateleave) OR
+        (cust.dateleave < '1970-01-01') OR
+        (cust.dateleave >= CurDate()))
 GROUP BY
     cust.id,
     cust.abbreviatedName,
@@ -77,13 +87,15 @@ GROUP BY
     cabinet.name,
     location.id,
     location.shortname,
+    location.tag,
     cust.name,
     cust.shortname,
     cust.type,
     cust.status,
     cust.isReseller,
     cust.reseller,
-    If(cust.reseller > 0, 1, 0)
-   ;
+    cust.datejoin,
+    cust.corpwww,
+    cust.in_peeringdb
 ```
 

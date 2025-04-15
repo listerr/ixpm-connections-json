@@ -84,9 +84,17 @@ my %defs = ('vlan' =>  {
                       'name' => 'ipv4_list',
                       'function' => 'find_in_set',
                        },
-            'ipv6' => {
-                      'name' => 'ipv6_list',
+            'ipv4' => {
+                      'name' => 'ipv4_list',
                       'function' => 'find_in_set',
+                       },                       
+            'join_from' => {
+                      'name' => 'datejoin',
+                      'comp' => '>=',
+                       },
+            'join_to' => {
+                      'name' => 'datejoin',
+                      'comp' => '<=',
                        },
             'isResold' => {
                       'type' => 'tinyint(1)',
@@ -96,20 +104,12 @@ my %defs = ('vlan' =>  {
                        },
             );
 
-my %column_info = GetTableColumnInfo( {  server => $MYSQL_SERVER,
-                                         database => $MYSQL_DATABASE,
-					 user => $MYSQL_USER,
-					 pass => $MYSQL_PASS,
-                                         table => 'view_local_connections' 
-				       } );
+my %column_info = GetTableColumnInfo( { table => 'view_local_connections' } );
 
 # fields to allow query from url (any field in the view is fine);
 my @queryfields = sort keys %column_info;
+push (@queryfields, ('ipv4', 'ipv6', 'vlan', 'switchport', 'join_from', 'join_to' ));
 
-# add some convenience field aliases:
-push (@queryfields, ('ipv4', 'ipv6', 'vlan', 'switchport'));
-
-# Add NOT ^field conditions:
 my @notqueryfields;
 foreach (@queryfields) {
   push @notqueryfields, '^' . $_;
@@ -141,6 +141,10 @@ foreach my $field (@queryfields) {
     # search modifiers:
     if ($field =~ /^\^/) {  $not = 1;  $field =~ s/^\^//g; }
     if ($fieldvalue =~ /^_/)  {  $comp = 'like';  $fieldvalue =~ s/^_//g; }
+
+    if (($field eq 'mac_list') && ($fieldvalue)) {
+        $fieldvalue =~ s/\://g;
+    }
 
     next if $fieldvalue eq 'all';
 
@@ -225,6 +229,8 @@ while ( my $row = $sth->fetchrow_hashref ) {
   # Can do things here if needed
   # $row->{autsys} = int($row->{autsys});
 
+  $row->{mac_list} = format_macs($row->{mac_list});
+
   # Turn '0' and '1' boolean database values to JSON true or false values:
   foreach my $bool (@booleans) {
    $row->{$bool}=js_bool("$row->{$bool}");
@@ -244,16 +250,36 @@ while ( my $row = $sth->fetchrow_hashref ) {
 $dbh->disconnect();
 
 # JSON OUTPUT
+
 # Pretty (human readable) output:
+# Note that canonical sorts the JSON output keys in alphabetical order,
+# since the perl hashes are unsorted. If converting this JSON into other
+# formats e.g. CSV, care must be taken to select the wanted fields
+# by name, and not rely on them being in a particular order or position.
 print "{\n";
 print "\"connections\": ";
 print JSON->new->canonical(1)->ascii->pretty->encode(\@query_output);
 print "}\n";
 
 
-sub js_bool {
+sub format_macs {
 
-  # cast MySQL boolean 1/0 to JSON true or false:
+  my $macs = shift;
+  my @maclist;
+
+  foreach my $mac (split(',', $macs)) {
+
+    $mac =~ s/..\K(?=.)/:/sg;
+    push (@maclist, $mac);
+
+  }
+
+  return join(',', @maclist);
+
+}
+
+
+sub js_bool {
 
 	my $input = shift;
 

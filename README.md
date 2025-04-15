@@ -47,11 +47,11 @@ The view is exposed in a flat JSON structure for simple lists:
   * Parameters can be added to the URL to select various attributes (multiple options will be ANDed together):
   * https://yourhost/cgi-internal/json_connections?loc_name=THW&port_speed=10000
 
-|  Option                        | Example                               |
-|--------------------------------|---------------------------------------|
-| Select multiple values         |  `field=value1,value2,value3`         |
+|  Option                                                                         | Example                               |
+|---------------------------------------------------------------------------------|---------------------------------------|
+| Select multiple values                                                          |  `field=value1,value2,value3`         |
 | Select **all** values (for fields that have a default set e.g. `cust_status` or `vlan`)  | `field=all` |
-| Exclude (NOT) values           | `^field=value`                         |
+| Exclude (NOT) values                                                           | `^field=value`                         |
 | Search for *value* anywhere in text (by default, only exact matches are found) | `field=_value`           |
 | Sort order                     | `order_by=field` (**default**: `abbreviatedName`)                        |
 | Select fields for output.  Other fields are omitted. (Must match the name in the JSON output).  Useful for removing the clutter from JSON output to show only fields you are interested in. (Fields not shown may still be used to search.)  | `select=field1,field2,field3`  |
@@ -81,7 +81,6 @@ The view is exposed in a flat JSON structure for simple lists:
 |  `cust_type`        | Excludes 3 (internal)                               | `^cust_type=3`          |
 |  `cust_status`      | 1 (normal)                                          | `cust_status=1`         |
 |  `port_status`      | 1 (connected)                                       | `port_status=1`         |
-|                     |                                                     |                         |
 |  `ppp_circuit_ref`  | Anywhere in text                                    | `ppp_circuit_ref=_(value)`| 
 
 
@@ -91,10 +90,13 @@ The view is exposed in a flat JSON structure for simple lists:
 | --------------------|--------------------------------------------------------------------------------------------------------|
 | `cabinet`           | Cabinet name (example: `inx-1`)                                                                        |
 | `channelgroup`      | Port channel group number (example: `103`)                                                             |
+| `corpwww`           | Website URL for member (example: https://some.site.net)                                                |
 | `cust_status`       | Cust status 1=normal, 2=not connected, 3=suspended  (**default**: 1)                                   |
 | `cust_type`         | Cust type 1=full, 3=internal, 4=probono  (**default**: ! = 3)                                          |
+| `datejoin`          | Member joining date `YYYY-MM-DD`                                                                       |
 | `fanout_physical_interface_id`  | For resold ports, the `port_id` of the associated reseller fanout port                     |
-| `fastlacp   `       | (Bool) is Fast LACP mode enabled? (`true/false`)                                                       |
+| `fastlacp`          | (Bool) is Fast LACP mode enabled? (`true/false`)                                                       |
+| `in_peeringdb`      | (Bool) is member in PeeringDB? (`true/false`)                                                          |
 | `ipv4canping`       | (Bool) IPv4 monitoring/ping enabled?  (`true/false`)                                                   |
 | `ipv4enabled`       | (Bool) Is IPv4 enabled?  (`true/false`)  Note: `true` if `ipv4enabled` on **any** VLAN interface       |
 | `ipv4monitorrcbgp`  | (Bool) Is IPv4 Collector session monitoring enabled? (`true/false`)                                    |
@@ -106,10 +108,12 @@ The view is exposed in a flat JSON structure for simple lists:
 | `isResold`          | (Bool) is a resold member  (`true` if `reseller > 0`)                                                  |
 | `lag_framing `      | (Bool) is LACP enabled? (`true/false`)                                                                 |
 | `loc_id`            | Location ID in IXPM e.g `3`                                                                            |
-| `loc_name`          | Location name (example: `HEX`)                                                                         |
+| `loc_name`          | Location name (example: `LD8`)                                                                         |
+| `loc_tag`           | Location tag (example: `hex`)                                                                          |
 | `mac_count`         | Number of MAC addresses in IXPM across all vlan interfaces                                             |
 | `mac_count_unique`  | Number of Unique MAC addresses in IXPM across all vlan interfaces                                      |
-| `mac_list`          | List of Unique MAC addresses in IXPM across all vlan interfaces                                        |
+| `mac_list`          | List of Unique MAC addresses in IXPM across all vlan interfaces (example: `aa:aa:aa:aa:aa:01,bb:bb:bb:bb:bb:02`) |
+| `port_id_list`      | List of physical port ids                                                                              |
 | `port_speed`        | Port speed (example: `1000`)                                                                           |
 | `port_status `      | Port status 1=connected, 2=disabled, 3=not connected, 4=awaiting x-connect, 5=quarantine (default: 1)  |
 | `port_type `        | Port type  (**default**: 1) 1=peering, 2=monitor, 3=core, 4=other, 5=mgmt, 6=fanout, 7=reseller        |
@@ -117,79 +121,88 @@ The view is exposed in a flat JSON structure for simple lists:
 | `rate_limit`        | Port rate limit (example: `1000`)                                                                      |
 | `reseller`          | ID of resold member's reseller                                                                         |
 | `rsclient`          | (Bool) Is Route server client enabled? (`true/false`)                                                  |
-| `switchport_list`    | Switchport name(s) (example: `Ethernet18/1`) Useful in combination with `switch`                      |
+| `switchport_list`   | Switchport name(s) (example: `Ethernet18/1`) Useful in combination with `switch`                       |
 | `switch`            | Switch name                                                                                            |
 | `trunk`             | (Bool) is trunk (802.1q tagging) enabled? (`true/false`)                                               |
 | `vlan_count`        | Number of VLANs on port                                                                                |
 | `vlan_list`         | VLAN **tag** id to select. (**default**: 4)                                                            |
+| `vlaninterface_id_list`         | List of IXPM VLAN interface ids.                                                           |
 
 
 ### Member / Port Specific Fields ###
 
-These are not so useful for lists but might be useful for querying ports for a given member.
+These are not so useful for lists but might be useful for querying ports for a given member(s).
 
 | Field              | Description                                                |
 |--------------------|------------------------------------------------------------|
-| `cust_id`          | cust_id in IXPM database                                   |
+| `abbreviatedName`  | abbreviatedName  in IXPM database                          |
 | `autsys`           | ASN. Will return **all** cust type/status and port status  |
+| `cust_id`          | cust_id in IXPM database                                   |
+| `ipv4`             | ipv4 address                                               |
+| `ipv4`             | ipv6 address                                               |
+| `join_from`        | search `datejoin` from and including date `YYYY-MM-DD`     |
+| `join_to`          | search `datejoin` up to and including date `YYYY-MM-DD`    |
+| `ppp_circuit_ref ` | patch panel circuit ref (example: `TIC-027774 6/8`)        |
+| `ppp_id`           | patch panel port ID in IXPM                                |
 | `shortname`        | shortname in IXPM database                                 |
-| `abbreviatedName`  | abbreviatedName  in IXPM database                         |
-| `virt_id`          | Ports belonging to virtual interface id in IXPM           |
-| `ppp_circuit_ref ` | patch panel circuit ref (example: `TIC-027774 6/8`)       |
-| `ppp_id`           | patch panel port ID in IXPM                               |
-| `ipv4 `            | ipv4 address                                              |
-| `ipv4 `            | ipv6 address                                              |
+| `virt_id`          | Ports belonging to virtual interface id in IXPM            |
 
 
 #### Example output
  
 ```javascript
-   {
-      "abbreviatedName" : "Foonet",
-      "autsys" : 65535,
-      "cabinet" : "eqs-1",
-      "channelgroup" : 102,
-      "cust_id" : 13,
-      "cust_status" : 1,
-      "cust_type" : 1,
-      "fanout_physical_interface_id" : null,
-      "fastlacp" : false,
-      "ipv4_list" : "5.57.80.250",
-      "ipv4canping" : true,
-      "ipv4enabled" : true,
-      "ipv4monitorrcbgp" : true,
-      "ipv6_list" : "2001:7f8:17::aaaa:1",
-      "ipv6canping" : true,
-      "ipv6enabled" : true,
-      "ipv6monitorrcbgp" : true,
-      "isRatelimit" : false,
-      "isReseller" : false,
-      "isResold" : false,
-      "lag_framing" : true,
-      "loc_id" : 7,
-      "loc_name" : "LD6",
-      "mac_count" : 2,
-      "mac_count_unique" : 1,
-      "mac_list" : "68215f83e073",
-      "name" : "Foo Networks Ltd.",
-      "port_id_list" : "869,878",
-      "port_speed" : 100000,
-      "port_status" : 1,
-      "port_type" : 1,
-      "ppp_circuit_ref" : "20457771,21450741",
-      "ppp_id" : "265,277",
-      "ppp_name" : "CP0403:1070390",
-      "rate_limit" : null,
-      "reseller" : null,
-      "rsclient" : true,
-      "shortname" : "foonet",
-      "switch" : "eqs-cr1",
-      "switchport_list" : "Ethernet7/1,Ethernet8/1",
-      "trunk" : false,
-      "virt_id" : 90,
-      "vlan_count" : 1,
-      "vlan_list" : "4"
-   },
+    {
+      "abbreviatedName": "Foonet",
+      "autsys": 65535,
+      "cabinet": "thw",
+      "channelgroup": null,
+      "corpwww": "https://www.example.com/",
+      "cust_id": 327,
+      "cust_status": 1,
+      "cust_type": 1,
+      "datejoin": "2020-08-07",
+      "fanout_physical_interface_id": null,
+      "fastlacp": false,
+      "in_peeringdb": true,
+      "ipv4_list": "5.57.80.250",
+      "ipv4canping": true,
+      "ipv4enabled": true,
+      "ipv4monitorrcbgp": true,
+      "ipv6_list": "2001:7f8:17::aaaa:1",
+      "ipv6canping": true,
+      "ipv6enabled": true,
+      "ipv6monitorrcbgp": true,
+      "isRatelimit": false,
+      "isReseller": false,
+      "isResold": true,
+      "lag_framing": false,
+      "loc_id": 6,
+      "loc_name": "THW",
+      "loc_tag": "thw",
+      "mac_count": 1,
+      "mac_count_unique": 1,
+      "mac_list": "f4:e9:75:ee:ff:01",
+      "name": "FooNet Group",
+      "port_id_list": "899",
+      "port_speed": 10000,
+      "port_status": 1,
+      "port_type": 1,
+      "ppp_circuit_ref": "20457771",
+      "ppp_connector_type": "3",
+      "ppp_id": "1181",
+      "ppp_name": "THW:TFM120:G18:P01/C",
+      "rate_limit": null,
+      "reseller": 280,
+      "rsclient": true,
+      "shortname": "foonet",
+      "switch": "thw-sr1",
+      "switchport_list": "Ethernet23",
+      "trunk": false,
+      "virt_id": 536,
+      "vlan_count": 1,
+      "vlan_list": "4",
+      "vlaninterface_id_list": "760"
+    },
 [...]   
 ]
 }
@@ -199,16 +212,35 @@ These are not so useful for lists but might be useful for querying ports for a g
 
  Use `curl` if you like. For manual things I like to use `wget` but they basically do the same thing.
 
-#### Get all live 1G ports in site THE, I want abbreviatedName, autsys, ipv4 and ipv6 in the output: ###
+#### Get all live 10G ports in site THE, I want abbreviatedName, autsys, ipv4 and ipv6 in the output: ###
 
-  * Using with `jq` to get a tab-separated list of the fields you want for a maintenance announcement
+  * Using with `jq` to get a tab-separated list of the fields you want for a maintenance announcement:
 
 ```bash
-$ wget -qO - 'https://yourhost/cgi-internal/json_connections?loc_name=THE&port_speed=1000' | jq -r '.connections[] | [.abbreviatedName,.autsys,.ipv4_list,.ipv6_list] | @tsv'
-teleBIZZ        41103   5.57.80.182     2001:7f8:17::a08f:1
-Fastnet International   12519   5.57.80.121     2001:7f8:17::30e7:2
+$ wget -qO - 'https://yourhost/cgi-internal/json_connections?loc_name=THE&port_speed=10000' | jq -r '.connections[] | [.abbreviatedName,.autsys,.ipv4_list,.ipv6_list]        | @tsv'
+1310.io 57793   5.57.82.122     2001:7f8:17::e1c1:1
+39D Services    34979   5.57.81.226     2001:7f8:17::88a3:1
+Belgacom ICS    6774
+Bogons  3213    5.57.80.152     2001:7f8:17::c8d:1
+Box Broadband   210874  5.57.82.109     2001:7f8:17::3:37ba:2
+Box Broadband   210874  5.57.82.108     2001:7f8:17::3:37ba:1
+BrightStar      42228   5.57.81.243     2001:7f8:17::a4f4:1
 [...]
 ```
+
+#### You can get a neater output for emails etc by using csv and piping this through column --table -s '",'
+
+
+```bash
+$ wget -qO - 'https://yourhost/cgi-internal/json_connections?loc_name=THE' | jq -r '.connections[] | [.abbreviatedName,.autsys,.ipv4_list,.ipv6_list] | @csv' | column --table -s '",'
+  1310.io                       57793     5.57.82.122      2001:7f8:17::e1c1:1
+  39D Services                  34979     5.57.81.226      2001:7f8:17::88a3:1
+  Belgacom ICS                  6774
+  Bogons                        3213      5.57.80.152      2001:7f8:17::c8d:1
+  Box Broadband                 210874    5.57.82.109      2001:7f8:17::3:37ba:2
+  Box Broadband                 210874    5.57.82.108      2001:7f8:17::3:37ba:1
+```
+
 
 #### Get all live ports on switch eqs-qr1, I want name, autsys, ipv4 and ipv6: ###
 

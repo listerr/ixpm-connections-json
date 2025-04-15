@@ -39,6 +39,7 @@ sub DBConnect {
 
 sub BuildWhereField {
 
+    # Takes a field name and one or more values in a comma-separated list.
     # Returns part of a MySQL query.
     #
     # field => 'switch'
@@ -62,7 +63,7 @@ sub BuildWhereField {
     my $function          = $args->{function};  # allow a function e.g find_in_set();
     my $not               = $args->{not};
     my $comp              = $args->{comp};
-    $comp = '=' unless ($comp =~ /^(like|like_starts)$/i);
+    $comp = '=' unless ($comp =~ /^(like|like_starts|>=|<=|<|>)$/i);
     $comp = lc($comp);
 
     # Assume safe query and want to use only placeholders in the query.
@@ -81,12 +82,12 @@ sub BuildWhereField {
           my $value_placeholder = $placeholder;
           if ($placeholder eq 'value') {  $value_placeholder = $v };
 
-          if ($comp eq '=') {
+          if ($comp =~ /^(=|>=|<=|<|>)$/) {
            if (($function) && ($placeholder eq '?'))      { $query .= "$function($value_placeholder, $field)"; }
            if (($function) && ($placeholder eq 'value'))  { $query .= "$function(\'$value_placeholder\', $field)"; }
 
-           if ((!$function) && ($placeholder eq '?'))     { $query .= "$field = $value_placeholder"; }
-           if ((!$function) && ($placeholder eq 'value')) { $query .= "$field = \"$value_placeholder\""; }
+           if ((!$function) && ($placeholder eq '?'))     { $query .= "$field $comp $value_placeholder"; }
+           if ((!$function) && ($placeholder eq 'value')) { $query .= "$field $comp \"$value_placeholder\""; }
           }
           
           if ($comp eq 'like') {
